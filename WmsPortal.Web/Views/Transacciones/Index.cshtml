@@ -1,0 +1,247 @@
+@model TransaccionesViewModel
+@{ ViewData["Title"] = Model.TipoLabel; ViewData["Nav"] = "tx-" + (int)Model.Filter.Tipo; }
+
+<div class="page-header">
+    <h1 class="page-title">@Model.TipoLabel</h1>
+    <span class="direction-tag">@WmsPortal.Core.Models.TipoTransaccionInfo.Meta[Model.Filter.Tipo].Direction</span>
+</div>
+
+<!-- Filtros -->
+<div class="filter-bar">
+    <form method="get" action="/Transacciones" class="filter-form">
+        <input type="hidden" name="tipo" value="@((int)Model.Filter.Tipo)"/>
+        <input type="hidden" name="pageSize" id="hf-pageSize" value="@Model.Filter.PageSize"/>
+
+        <div class="filter-group">
+            <label>Estado</label>
+            <select name="status">
+                <option value="">Todos</option>
+                @{
+                    bool esConfirmacion = Model.Filter.Tipo is WmsPortal.Core.Models.TipoTransaccion.ConfirmacionAsn
+                                                            or WmsPortal.Core.Models.TipoTransaccion.ConfirmacionOrdenes;
+                    string[] statuses = esConfirmacion
+                        ? new[]{"PENDIENTE","ERROR_LOCAL","ERROR_SAP","PROCESADO_SAP"}
+                        : new[]{"PENDIENTE","SYNC_OK","ERROR_SAP"};
+                }
+                @foreach (var s in statuses)
+                {
+                    <option value="@s" selected="@(Model.Filter.Status==s ? "selected" : null)">@s</option>
+                }
+            </select>
+        </div>
+        @{
+            var docLabel = WmsPortal.Core.Models.TipoTransaccionInfo.Meta[Model.Filter.Tipo].DocLabel;
+            bool esOrdenes = Model.Filter.Tipo == WmsPortal.Core.Models.TipoTransaccion.EnvioOrdenes;
+            bool esConfOrdenes = Model.Filter.Tipo == WmsPortal.Core.Models.TipoTransaccion.ConfirmacionOrdenes;
+        }
+        <div class="filter-group">
+            <label>@docLabel</label>
+            <input type="text" name="numDoc" value="@Model.Filter.NumeroDocumento" placeholder="Buscar..."/>
+        </div>
+        @if (esConfOrdenes)
+        {
+            <div class="filter-group">
+                <label>LPN</label>
+                <input type="text" name="lpn" value="@Model.Filter.Lpn" placeholder="Buscar LPN..."/>
+            </div>
+        }
+        @if (esOrdenes || esConfOrdenes)
+        {
+            <div class="filter-group">
+                <label>PO Cliente</label>
+                <input type="text" name="customerPo" value="@Model.Filter.CustomerPo" placeholder="Buscar PO..."/>
+            </div>
+        }
+        <div class="filter-group">
+            <label>Desde</label>
+            <input type="date" name="desde" value="@Model.Filter.Desde?.ToString("yyyy-MM-dd")"/>
+        </div>
+        <div class="filter-group">
+            <label>Hasta</label>
+            <input type="date" name="hasta" value="@Model.Filter.Hasta?.ToString("yyyy-MM-dd")"/>
+        </div>
+        <div class="filter-actions">
+            <button type="submit" class="btn-primary">Buscar</button>
+            <a href="/Transacciones?tipo=@((int)Model.Filter.Tipo)&desde=&hasta=" class="btn-secondary">Limpiar</a>
+        </div>
+    </form>
+</div>
+
+<!-- Toolbar tabla -->
+<div class="table-toolbar">
+    <div class="toolbar-left">
+        <label>Registros por página</label>
+        <select id="sel-pagesize" onchange="changePageSize(this.value)">
+            @foreach (var ps in new[]{10,25,50,100})
+            {
+                <option value="@ps" selected="@(Model.Filter.PageSize==ps ? "selected" : null)">@ps</option>
+            }
+        </select>
+        <button id="btn-reset-sel" class="btn-primary" disabled onclick="openResetModal()">
+            Resetear seleccionados
+        </button>
+    </div>
+    <div class="toolbar-right">
+        <span class="record-count">@Model.Result.TotalCount registro(s) encontrado(s)</span>
+    </div>
+</div>
+
+<!-- Grid -->
+<div class="table-wrap">
+    <table class="data-table data-table-sm" id="tx-table">
+        <thead>
+            <tr>
+                <th class="col-chk">
+                    <input type="checkbox" id="chk-all" onchange="toggleAll(this)"/>
+                </th>
+                @foreach (var col in Model.Columns)
+                {
+                    <th style="width:@col.Width">@col.Header</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @if (!Model.Result.Items.Any())
+            {
+                <tr><td colspan="@(Model.Columns.Count + 1)" class="empty-row">
+                    Sin registros para los filtros seleccionados.
+                </td></tr>
+            }
+            @foreach (var row in Model.Result.Items)
+            {
+                <tr>
+                    <td class="col-chk">
+                        <input type="checkbox" class="row-chk"
+                               data-pk="@row.PkValue"
+                               data-pk2="@row.PkValue2"
+                               onchange="toggleRow(this)"/>
+                    </td>
+                    @foreach (var col in Model.Columns)
+                    {
+                        <td>
+                            @if (col.IsStatus)
+                            {
+                                string cls = row.Status switch {
+                                    "SYNC_OK" or "PROCESADO_SAP" => "status-ok",
+                                    "ERROR_SAP" or "ERROR_LOCAL" or "ERROR" => "status-error",
+                                    "PENDIENTE" => "status-pending",
+                                    _ => "status-other"
+                                };
+                                <span class="status-badge @cls">@row.Status</span>
+                            }
+                            else if (col.IsError)
+                            {
+                                <span class="text-error" title="@(row.SyncErrorLog ?? "")">
+                                    @(row.SyncErrorLog ?? "—")
+                                </span>
+                            }
+                            else
+                            {
+                                string val = col.Field switch {
+                                    "TimeStamp"    => row.TimeStamp ?? "—",
+                                    "RetryCount"   => row.RetryCount?.ToString() ?? "0",
+                                    "SyncDate"     => row.SyncDate ?? "—",
+                                    "PartA"        => row.PartA ?? "—",
+                                    "Code"         => row.Code ?? "—",
+                                    "Name"         => row.Name ?? "—",
+                                    "Address1"     => row.Address1 ?? "—",
+                                    "IdSuc"        => row.IdSuc ?? "—",
+                                    "TipoDoc"      => row.TipoDoc ?? "—",
+                                    "OrderNbr"     => row.OrderNbr ?? "—",
+                                    "CustomerPoNbr"=> row.CustomerPoNbr ?? "—",
+                                    "ShipmentNbr"  => row.ShipmentNbr ?? "—",
+                                    "ObLpnNbr"     => row.ObLpnNbr ?? "—",
+                                    "ShippedQty"   => row.ShippedQty ?? "—",
+                                    "ReceivedQty"  => row.ReceivedQty ?? "—",
+                                    _ => "—"
+                                };
+                                @val
+                            }
+                        </td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<!-- Paginación -->
+<div class="pagination-bar">
+    <span class="pag-info">
+        Mostrando @((Model.Result.Page-1)*Model.Result.PageSize+1)–@(Math.Min(Model.Result.Page*Model.Result.PageSize, Model.Result.TotalCount))
+        de @Model.Result.TotalCount
+    </span>
+    <div class="pag-btns">
+        @for (int p = 1; p <= Model.Result.TotalPages; p++)
+        {
+            <a href="/Transacciones?tipo=@((int)Model.Filter.Tipo)&status=@Model.Filter.Status&numDoc=@Model.Filter.NumeroDocumento&lpn=@Model.Filter.Lpn&customerPo=@Model.Filter.CustomerPo&desde=@Model.Filter.Desde?.ToString("yyyy-MM-dd")&hasta=@Model.Filter.Hasta?.ToString("yyyy-MM-dd")&page=@p&pageSize=@Model.Filter.PageSize"
+               class="pag-btn @(p == Model.Result.Page ? "active" : "")">@p</a>
+        }
+    </div>
+</div>
+
+<!-- Modal confirmación reset -->
+<div id="modal-reset" style="display:none">
+    <h3>Resetear transacciones</h3>
+    <p>Se actualizarán <strong id="modal-count">0</strong> registro(s):</p>
+    <code>SET Status = 'PENDIENTE', Retry_Count = 0, Sync_Error_Log = NULL</code>
+    <div class="modal-btns">
+        <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+        <button class="btn-primary" onclick="doReset()">Confirmar</button>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const TIPO = @((int)Model.Filter.Tipo);
+let selected = new Set();
+
+function toggleAll(chk) {
+    document.querySelectorAll('.row-chk').forEach(c => {
+        c.checked = chk.checked;
+        chk.checked ? selected.add(c.dataset.pk) : selected.delete(c.dataset.pk);
+    });
+    updateToolbar();
+}
+
+function toggleRow(chk) {
+    chk.checked ? selected.add(chk.dataset.pk) : selected.delete(chk.dataset.pk);
+    updateToolbar();
+}
+
+function updateToolbar() {
+    const btn = document.getElementById('btn-reset-sel');
+    btn.disabled = selected.size === 0;
+    btn.textContent = selected.size > 0
+        ? `Resetear ${selected.size} seleccionado(s)`
+        : 'Resetear seleccionados';
+}
+
+function openResetModal() {
+    document.getElementById('modal-count').textContent = selected.size;
+    showModal(document.getElementById('modal-reset').innerHTML);
+}
+
+function doReset() {
+    closeModal();
+    fetch('/Transacciones/Reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: TIPO, claves: Array.from(selected) })
+    })
+    .then(r => r.json())
+    .then(d => {
+        showToast(d.message, d.success ? 'ok' : 'error');
+        if (d.success) setTimeout(() => location.reload(), 1500);
+    });
+}
+
+function changePageSize(val) {
+    document.getElementById('hf-pageSize').value = val;
+    const url = new URL(window.location.href);
+    url.searchParams.set('pageSize', val);
+    url.searchParams.set('page', '1');
+    window.location = url.toString();
+}
+</script>
+}

@@ -1,0 +1,91 @@
+@model DashboardViewModel
+@{ ViewData["Title"] = "Dashboard"; ViewData["Nav"] = "dashboard"; }
+
+<div class="page-header">
+    <h1 class="page-title">Dashboard</h1>
+    <div class="range-tabs" role="group">
+        <a href="/Dashboard?dias=1"  class="range-tab @(Model.Dias==1  ? "active" : "")">Hoy</a>
+        <a href="/Dashboard?dias=7"  class="range-tab @(Model.Dias==7  ? "active" : "")">7 días</a>
+        <a href="/Dashboard?dias=30" class="range-tab @(Model.Dias==30 ? "active" : "")">30 días</a>
+    </div>
+</div>
+
+<!-- Tarjetas resumen -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total transacciones</div>
+        <div class="stat-value">@Model.Resumen.TotalTransacciones.ToString("N0")</div>
+        <div class="stat-sub">últimos @Model.Dias día(s)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Procesadas OK</div>
+        <div class="stat-value ok">@Model.Resumen.TotalOk.ToString("N0")</div>
+        <div class="stat-sub">
+            @(Model.Resumen.TotalTransacciones > 0
+                ? $"{(Model.Resumen.TotalOk * 100.0 / Model.Resumen.TotalTransacciones):F1}%"
+                : "—")
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Con error</div>
+        <div class="stat-value error">@Model.Resumen.TotalError.ToString("N0")</div>
+        <div class="stat-sub">requieren atención</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Pendientes</div>
+        <div class="stat-value warn">@Model.Resumen.TotalPendiente.ToString("N0")</div>
+        <div class="stat-sub">en cola de reintento</div>
+    </div>
+</div>
+
+<!-- Gráficos -->
+<div class="charts-row">
+    <div class="chart-card">
+        <div class="chart-title">Transacciones por tipo</div>
+        <table class="tipo-table">
+            <thead>
+                <tr><th>Tipo</th><th class="num ok">OK</th><th class="num error">Error</th><th class="num warn">Pend.</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var t in Model.Resumen.PorTipo)
+                {
+                    <tr>
+                        <td class="tipo-name">@t.Tipo</td>
+                        <td class="num ok">@t.Ok.ToString("N0")</td>
+                        <td class="num error">@t.Error.ToString("N0")</td>
+                        <td class="num warn">@t.Pendiente.ToString("N0")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <div class="chart-card">
+        <div class="chart-title">Estado general</div>
+        <div class="status-summary">
+            <div class="ss-row">
+                <span class="ss-label">OK / Procesado</span>
+                <span class="ss-val ok">@Model.Resumen.TotalOk.ToString("N0")</span>
+            </div>
+            <div class="ss-row">
+                <span class="ss-label">Error</span>
+                <span class="ss-val error">@Model.Resumen.TotalError.ToString("N0")</span>
+            </div>
+            <div class="ss-row">
+                <span class="ss-label">Pendiente</span>
+                <span class="ss-val warn">@Model.Resumen.TotalPendiente.ToString("N0")</span>
+            </div>
+            @{
+                var total = Model.Resumen.TotalOk + Model.Resumen.TotalError + Model.Resumen.TotalPendiente;
+                var pctOk  = total > 0 ? Model.Resumen.TotalOk    * 100.0 / total : 0;
+                var pctErr = total > 0 ? Model.Resumen.TotalError  * 100.0 / total : 0;
+                var pctPend= total > 0 ? Model.Resumen.TotalPendiente * 100.0 / total : 0;
+            }
+            <div class="ss-bar">
+                <div class="ss-seg ok"    style="width:@pctOk.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                <div class="ss-seg error" style="width:@pctErr.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                <div class="ss-seg warn"  style="width:@pctPend.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+            </div>
+        </div>
+    </div>
+</div>
+

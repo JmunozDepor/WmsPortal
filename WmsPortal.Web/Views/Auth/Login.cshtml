@@ -1,0 +1,69 @@
+@model LoginViewModel
+@{ Layout = null; ViewData["Title"] = "Iniciar sesión"; }
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Iniciar sesión – WMS Portal</title>
+    <link rel="stylesheet" href="~/css/site.css"/>
+</head>
+<body class="login-body">
+<div class="login-wrap">
+    <div class="login-card">
+        <div class="login-brand">
+            <div class="brand-initials" id="brand-icon">W</div>
+            <div>
+                <div class="brand-title">WMS Integration Portal</div>
+                <div class="brand-sub">Logfire ↔ SAP Business One</div>
+            </div>
+        </div>
+
+        @if (Model.ErrorMessage != null)
+        {
+            <div class="alert-error">@Model.ErrorMessage</div>
+        }
+
+        <form method="post" action="/Auth/Login">
+            <div class="form-section-label">Empresa</div>
+            <div class="company-grid">
+                @foreach (var c in Model.Companies)
+                {
+                    <label class="company-opt @(c.Id == Model.CompanyId || (Model.CompanyId == 0 && c == Model.Companies.First()) ? "selected" : "")">
+                        <input type="radio" name="CompanyId" value="@c.Id"
+                               @(c.Id == Model.CompanyId || (Model.CompanyId == 0 && c == Model.Companies.First()) ? "checked" : "")
+                               onchange="updateBrand('@c.Code','@c.DbType')"/>
+                        @if (!string.IsNullOrEmpty(c.LogoPath))
+                        {
+                            <img src="@c.LogoPath" class="opt-logo" alt="@c.Name"/>
+                        }
+                        <span class="opt-name">@c.Name</span>
+                        <span class="opt-db">@c.DbType</span>
+                    </label>
+                }
+            </div>
+
+            <div class="form-group">
+                <label for="Username">Usuario</label>
+                <input type="text" id="Username" name="Username" value="@Model.Username"
+                       placeholder="nombre@empresa.cl" autocomplete="username" required/>
+            </div>
+            <div class="form-group">
+                <label for="Password">Contraseña</label>
+                <input type="password" id="Password" name="Password"
+                       placeholder="••••••••" autocomplete="current-password" required/>
+            </div>
+
+            <button type="submit" class="btn-login">Iniciar sesión</button>
+        </form>
+    </div>
+</div>
+<script>
+function updateBrand(code, db) {
+    document.getElementById('brand-icon').textContent = code.charAt(0);
+    document.querySelectorAll('.company-opt').forEach(el => el.classList.remove('selected'));
+    event.currentTarget.closest('.company-opt').classList.add('selected');
+}
+</script>
+</body>
+</html>

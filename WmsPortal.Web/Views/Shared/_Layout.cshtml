@@ -1,0 +1,150 @@
+@using WmsPortal.Web.Models
+@{
+    var session = Context.Session.GetString("SessionData");
+    SessionData? sd = null;
+    if (session != null)
+        sd = System.Text.Json.JsonSerializer.Deserialize<SessionData>(session);
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>@ViewData["Title"] – WMS Integration Portal</title>
+    <link rel="stylesheet" href="~/css/site.css"/>
+    <script>document.documentElement.setAttribute('data-theme',localStorage.getItem('wms-theme')||'light');</script>
+</head>
+<body>
+@if (sd != null)
+{
+    <div class="app-shell">
+        <!-- HEADER -->
+        <header class="site-header">
+            <div class="header-brand">
+                @if (!string.IsNullOrEmpty(sd.CompanyLogoPath))
+                {
+                    <img src="@sd.CompanyLogoPath" class="brand-logo" alt="@sd.CompanyName"/>
+                }
+                else
+                {
+                    <div class="brand-initials">@sd.CompanyCode.Substring(0,1)</div>
+                }
+                <div class="brand-text">
+                    <span class="brand-title">WMS Integration Portal</span>
+                    <span class="brand-sub">Logfire ↔ SAP Business One</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="theme-switcher" title="Cambiar tema">
+                    <button class="theme-btn" data-theme="light"  title="Claro"></button>
+                    <button class="theme-btn" data-theme="dark"   title="Oscuro"></button>
+                    <button class="theme-btn" data-theme="ocean"  title="Océano"></button>
+                    <button class="theme-btn" data-theme="violet" title="Violeta"></button>
+                </div>
+                @if (sd.AvailableCompanies.Count > 1)
+                {
+                    <div class="company-switcher" id="company-switcher">
+                        <button class="company-pill company-pill-btn" onclick="toggleCompanyMenu(event)" title="Cambiar empresa">
+                            <span class="company-name">@sd.CompanyName</span>
+                            <span class="db-tag @(sd.CompanyDbType == "HANA" ? "tag-hana" : "tag-sql")">@sd.CompanyDbType</span>
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="opacity:.6"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <div class="company-menu" id="company-menu">
+                            @foreach (var co in sd.AvailableCompanies)
+                            {
+                                <button class="company-menu-item @(co.Id == sd.CompanyId ? "current" : "")"
+                                        onclick="switchCompany(@co.Id)">
+                                    <span class="company-menu-code">@co.Code</span>
+                                    <span class="company-menu-name">@co.Name</span>
+                                    <span class="db-tag @(co.DbType == "HANA" ? "tag-hana" : "tag-sql")" style="font-size:10px;padding:1px 5px">@co.DbType</span>
+                                    @if (co.Id == sd.CompanyId) { <span style="margin-left:auto;color:var(--accent)">✓</span> }
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="company-pill">
+                        <span class="company-name">@sd.CompanyName</span>
+                        <span class="db-tag @(sd.CompanyDbType == "HANA" ? "tag-hana" : "tag-sql")">@sd.CompanyDbType</span>
+                    </div>
+                }
+                <div class="user-menu">
+                    <div class="user-avatar">@sd.Username.Substring(0,Math.Min(2,sd.Username.Length)).ToUpper()</div>
+                    <span class="user-name">@sd.Username</span>
+                    <a href="/Auth/Logout" class="logout-link" title="Cerrar sesión">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-layout">
+            <!-- SIDEBAR -->
+            <nav class="sidebar">
+                <div class="nav-section">Principal</div>
+                <a href="/Dashboard" class="nav-item @(ViewData["Nav"]?.ToString() == "dashboard" ? "active" : "")">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    Dashboard
+                </a>
+
+                <div class="nav-section">Envío SAP → WMS</div>
+                <a href="/Transacciones?tipo=0" class="nav-item @(ViewData["Nav"]?.ToString() == "tx-0" ? "active" : "")">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                    Productos
+                </a>
+                <a href="/Transacciones?tipo=1" class="nav-item @(ViewData["Nav"]?.ToString() == "tx-1" ? "active" : "")">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    Sucursales
+                </a>
+                <a href="/Transacciones?tipo=2" class="nav-item @(ViewData["Nav"]?.ToString() == "tx-2" ? "active" : "")">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Órdenes
+                </a>
+                <a href="/Transacciones?tipo=3" class="nav-item @(ViewData["Nav"]?.ToString() == "tx-3" ? "active" : "")">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                    Ingresos ASN
+                </a>
+
+                <div class="nav-section">Confirmación WMS → SAP</div>
+                <a href="/Transacciones?tipo=4" class="nav-item @(ViewData["Nav"]?.ToString() == "tx-4" ? "active" : "")">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    Confirmacion Ingreso
+                </a>
+                <a href="/Transacciones?tipo=5" class="nav-item @(ViewData["Nav"]?.ToString() == "tx-5" ? "active" : "")">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><polyline points="9 12 11 14 15 10"/></svg>
+                    Confirmacion Ordenes
+                </a>
+
+                @if (sd.Role == "Admin")
+                {
+                    <div class="nav-section">Sistema</div>
+                    <a href="/Admin" class="nav-item @(ViewData["Nav"]?.ToString() == "admin" ? "active" : "")">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+                        Administración
+                    </a>
+                }
+            </nav>
+
+            <!-- CONTENT -->
+            <main class="page-content">
+                @RenderBody()
+            </main>
+        </div>
+    </div>
+}
+else
+{
+    @RenderBody()
+}
+
+<div id="toast" class="toast" role="alert" aria-live="polite"></div>
+<div id="modal-overlay" class="modal-overlay" style="display:none">
+    <div class="modal-box" id="modal-box"></div>
+</div>
+
+<script src="~/js/site.js"></script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

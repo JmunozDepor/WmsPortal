@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^powershell -NoProfile -Command \"Get-Process dotnet -ErrorAction SilentlyContinue \\| Where-Object \\{ \\$_\\.Path -like '\\*PROYECTOS\\*' -or \\$_\\.Path -like '\\*WmsPortal\\*' \\} \\| Select-Object Id, ProcessName, Path, @\\{Name='CommandLine';Expression=\\{\\$_\\.StartInfo\\.Arguments\\}\\} \\| Format-Table -AutoSize\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

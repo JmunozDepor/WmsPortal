@@ -1,0 +1,335 @@
+@model AdminViewModel
+@{ ViewData["Title"] = "Administración"; ViewData["Nav"] = "admin"; }
+
+<div class="page-header">
+    <h1 class="page-title">Administración</h1>
+</div>
+
+<div class="admin-grid">
+    <!-- Usuarios -->
+    <div class="panel">
+        <div class="panel-header">
+            <span class="panel-title">Usuarios</span>
+            <button class="btn-xs" onclick="showNewUserForm()">+ Nuevo usuario</button>
+        </div>
+        <div class="panel-body">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Usuario</th><th>Email</th><th>Rol</th><th>Activo</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var u in Model.Users)
+                    {
+                        <tr>
+                            <td>
+                                <div class="user-cell">
+                                    <div class="avatar-sm">@u.Username.Substring(0,Math.Min(2,u.Username.Length)).ToUpper()</div>
+                                    <span>@u.Username</span>
+                                </div>
+                            </td>
+                            <td>@u.Email</td>
+                            <td><span class="role-badge role-@u.Role.ToLower()">@u.Role</span></td>
+                            <td>@(u.IsActive ? "✓" : "—")</td>
+                            <td>
+                                <button class="btn-xs"
+                                    data-id="@u.Id"
+                                    data-username="@u.Username"
+                                    data-email="@u.Email"
+                                    data-role="@u.Role"
+                                    data-active="@u.IsActive.ToString().ToLower()"
+                                    data-companies="@System.Text.Json.JsonSerializer.Serialize(u.CompanyIds)"
+                                    onclick="editUser(this)">Editar</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Empresas -->
+    <div class="panel">
+        <div class="panel-header">
+            <span class="panel-title">Empresas</span>
+            <button class="btn-xs" onclick="showNewCompanyForm()">+ Nueva empresa</button>
+        </div>
+        <div class="panel-body">
+            @foreach (var c in Model.Companies)
+            {
+                <div class="company-row">
+                    <div class="company-logo-sm">@c.Code.Substring(0,1)</div>
+                    <div class="company-info">
+                        <div class="company-name-row">@c.Name</div>
+                        <div class="company-detail">@c.SchemaName · @c.DbType</div>
+                    </div>
+                    <span class="db-tag @(c.DbType=="HANA"?"tag-hana":"tag-sql")">@c.DbType</span>
+                    <span class="conn-dot" title="Activa"></span>
+                    <button class="btn-xs"
+                        data-id="@c.Id"
+                        data-code="@c.Code"
+                        data-name="@c.Name"
+                        data-dbtype="@c.DbType"
+                        data-connstr="@c.ConnectionStr"
+                        data-schema="@c.SchemaName"
+                        data-sortorder="@c.SortOrder"
+                        data-showinlogin="@c.ShowInLogin.ToString().ToLower()"
+                        onclick="editCompany(this)">Editar</button>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Permisos -->
+    <div class="panel panel-full">
+        <div class="panel-header"><span class="panel-title">Permisos por usuario</span></div>
+        <div class="panel-body">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Rol</th>
+                        @foreach (var c in Model.Companies)
+                        {
+                            <th>@c.Name (@c.DbType)</th>
+                        }
+                        <th>Puede resetear</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var u in Model.Users)
+                    {
+                        <tr>
+                            <td>@u.Username</td>
+                            <td><span class="role-badge role-@u.Role.ToLower()">@u.Role</span></td>
+                            @foreach (var c in Model.Companies)
+                            {
+                                <td>@(u.CompanyIds.Contains(c.Id) || u.Role == "Admin" ? "✅" : "—")</td>
+                            }
+                            <td>@(u.Role is "Admin" or "Operador" ? "✅" : "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const COMPANIES = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+    Model.Companies.Select(c => new { id = c.Id, name = c.Name })));
+
+/* ─── helpers ─────────────────────────────────────────────────────── */
+function htmlEsc(s) {
+    return String(s)
+        .replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+        .replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+const SEL_STYLE = 'width:100%;padding:7px 8px;border:1px solid var(--gray-border);' +
+                  'border-radius:var(--radius);font-size:13px;' +
+                  'background:var(--input-bg);color:var(--text)';
+
+const INP_STYLE = 'width:100%;padding:7px 8px;border:1px solid var(--gray-border);' +
+                  'border-radius:var(--radius);font-size:13px;' +
+                  'background:var(--input-bg);color:var(--text)';
+
+/* ─── usuario ─────────────────────────────────────────────────────── */
+function companyCheckboxes(checkedIds) {
+    return COMPANIES.map(c => `
+        <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;padding:3px 0">
+            <input type="checkbox" class="company-chk" value="${c.id}"
+                   style="margin-top:2px;flex-shrink:0;width:14px;height:14px;cursor:pointer"
+                   ${checkedIds.includes(c.id) ? 'checked' : ''}/>
+            <span>${htmlEsc(c.name)}</span>
+        </label>`).join('');
+}
+
+function buildUserForm(title, id, username, email, role, isActive, companyIds) {
+    const isNew = id === 0;
+    return `
+        <h3>${title}</h3>
+        <div class="form-group">
+            <label>Usuario</label>
+            <input type="text" id="uf-username" value="${htmlEsc(username)}" style="${INP_STYLE}"
+                   ${!isNew ? 'disabled style="' + INP_STYLE + ';opacity:.55"' : ''}
+                   placeholder="nombre de usuario"/>
+        </div>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="uf-email" value="${htmlEsc(email)}" style="${INP_STYLE}" placeholder="correo@dominio.com"/>
+        </div>
+        <div class="form-group">
+            <label>Contraseña${isNew ? '' : ' <span style="font-weight:400;color:var(--text-muted)">(en blanco = sin cambio)</span>'}</label>
+            <input type="password" id="uf-password" style="${INP_STYLE}"
+                   placeholder="${isNew ? 'Requerida para nuevo usuario' : 'Sin cambios'}"/>
+        </div>
+        <div class="form-group">
+            <label>Rol</label>
+            <select id="uf-role" style="${SEL_STYLE}">
+                <option value="Admin"    ${role==='Admin'   ?'selected':''}>Admin</option>
+                <option value="Operador" ${role==='Operador'?'selected':''}>Operador</option>
+                <option value="Viewer"   ${role==='Viewer'  ?'selected':''}>Viewer</option>
+            </select>
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="uf-active" style="width:15px;height:15px;cursor:pointer" ${isActive?'checked':''}/>
+            <label for="uf-active" style="margin:0;cursor:pointer;font-size:13px;color:var(--text)">Activo</label>
+        </div>
+        <div class="form-group">
+            <label>Acceso a empresas</label>
+            <div style="display:flex;flex-direction:column;gap:2px;margin-top:6px">
+                ${companyCheckboxes(companyIds)}
+            </div>
+        </div>
+        <div class="modal-btns">
+            <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+            <button class="btn-primary" onclick="saveUser(${id})">Guardar</button>
+        </div>`;
+}
+
+function showNewUserForm() {
+    showModal(buildUserForm('Nuevo usuario', 0, '', '', 'Viewer', true, []));
+}
+
+function editUser(btn) {
+    const d = btn.dataset;
+    const companyIds = JSON.parse(d.companies || '[]');
+    showModal(buildUserForm('Editar usuario',
+        parseInt(d.id), d.username, d.email, d.role,
+        d.active === 'true', companyIds));
+}
+
+function saveUser(userId) {
+    const box = document.getElementById('modal-box');
+    const username = box.querySelector('#uf-username')?.value?.trim() ?? '';
+    const email    = box.querySelector('#uf-email')?.value?.trim() ?? '';
+    const password = box.querySelector('#uf-password')?.value ?? '';
+    const role     = box.querySelector('#uf-role')?.value ?? 'Viewer';
+    const isActive = box.querySelector('#uf-active')?.checked ?? true;
+    const companyIds = Array.from(box.querySelectorAll('input.company-chk'))
+        .filter(c => c.checked).map(c => parseInt(c.value));
+
+    if (!email) { showToast('El email es requerido.', 'error'); return; }
+    if (userId === 0 && !username) { showToast('El nombre de usuario es requerido.', 'error'); return; }
+    if (userId === 0 && !password) { showToast('La contraseña es requerida para nuevo usuario.', 'error'); return; }
+
+    fetch(userId === 0 ? '/Admin/CreateUser' : '/Admin/UpdateUser', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: userId, username, email, password, role, isActive, companyIds })
+    })
+    .then(r => r.json())
+    .then(d => {
+        showToast(d.message, d.success ? 'ok' : 'error');
+        if (d.success) setTimeout(() => location.reload(), 1500);
+    })
+    .catch(() => showToast('Error de comunicación.', 'error'));
+}
+
+/* ─── empresa ─────────────────────────────────────────────────────── */
+function buildCompanyForm(id, code, name, dbType, connStr, schemaName, sortOrder, showInLogin) {
+    const isNew = id === 0;
+    return `
+        <h3>${isNew ? 'Nueva empresa' : 'Editar empresa'}</h3>
+        ${isNew ? `
+        <div class="form-group">
+            <label>Código</label>
+            <input type="text" id="cf-code" value="${htmlEsc(code)}" style="${INP_STYLE}" placeholder="Ej: GE3" maxlength="20"/>
+        </div>` : ''}
+        <div class="form-group">
+            <label>Nombre</label>
+            <input type="text" id="cf-name" value="${htmlEsc(name)}" style="${INP_STYLE}"/>
+        </div>
+        <div class="form-group">
+            <label>Tipo de base de datos</label>
+            <select id="cf-dbtype" style="${SEL_STYLE}">
+                <option value="HANA"      ${dbType==='HANA'     ?'selected':''}>HANA</option>
+                <option value="SQLSERVER" ${dbType==='SQLSERVER'?'selected':''}>SQLSERVER</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Cadena de conexión</label>
+            <div style="display:flex;gap:8px;align-items:center">
+                <input type="text" id="cf-connstr" value="${htmlEsc(connStr)}" style="${INP_STYLE}" placeholder="Server=host:port;UserID=user;Password=pass;"/>
+                <button type="button" onclick="testConn()" style="white-space:nowrap;padding:7px 12px;font-size:12px;border:1px solid var(--gray-border);border-radius:var(--radius);background:var(--input-bg);color:var(--text);cursor:pointer" title="Validar conexión">🔌 Validar</button>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Schema</label>
+            <input type="text" id="cf-schema" value="${htmlEsc(schemaName)}" style="${INP_STYLE}"/>
+        </div>
+        <div class="form-group">
+            <label>Orden</label>
+            <input type="number" id="cf-sortorder" value="${sortOrder}" style="${INP_STYLE};width:80px" min="1"/>
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="cf-showinlogin" style="width:15px;height:15px;cursor:pointer" ${showInLogin ? 'checked' : ''}/>
+            <label for="cf-showinlogin" style="margin:0;cursor:pointer;font-size:13px;color:var(--text)">Visible en pantalla de login</label>
+        </div>
+        <div class="modal-btns">
+            <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+            <button class="btn-primary" onclick="saveCompany(${id})">Guardar</button>
+        </div>`;
+}
+
+function showNewCompanyForm() {
+    showModal(buildCompanyForm(0, '', '', 'HANA', '', 'CLPRD_WMS', 99, true));
+}
+
+function editCompany(btn) {
+    const d = btn.dataset;
+    showModal(buildCompanyForm(parseInt(d.id), d.code || '', d.name, d.dbtype, d.connstr, d.schema,
+        parseInt(d.sortorder || '99'), d.showinlogin === 'true'));
+}
+
+function testConn() {
+    const box = document.getElementById('modal-box');
+    const dbType  = box.querySelector('#cf-dbtype')?.value ?? 'HANA';
+    const connStr = box.querySelector('#cf-connstr')?.value?.trim() ?? '';
+    if (!connStr) { showToast('Ingrese la cadena de conexión.', 'error'); return; }
+
+    const btn = box.querySelector('button[onclick="testConn()"]');
+    const orig = btn.textContent;
+    btn.textContent = 'Probando…';
+    btn.disabled = true;
+
+    fetch('/Admin/TestConnection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dbType, connStr })
+    })
+    .then(r => r.json())
+    .then(d => { showToast(d.message, d.success ? 'ok' : 'error'); })
+    .catch(() => showToast('Error de comunicación.', 'error'))
+    .finally(() => { btn.textContent = orig; btn.disabled = false; });
+}
+
+function saveCompany(id) {
+    const box = document.getElementById('modal-box');
+    const code        = box.querySelector('#cf-code')?.value?.trim() ?? '';
+    const name        = box.querySelector('#cf-name')?.value?.trim() ?? '';
+    const dbType      = box.querySelector('#cf-dbtype')?.value ?? 'HANA';
+    const connStr     = box.querySelector('#cf-connstr')?.value?.trim() ?? '';
+    const schemaName  = box.querySelector('#cf-schema')?.value?.trim() ?? 'CLPRD_WMS';
+    const sortOrder   = parseInt(box.querySelector('#cf-sortorder')?.value ?? '99');
+    const showInLogin = box.querySelector('#cf-showinlogin')?.checked ?? true;
+
+    if (!name || !connStr) { showToast('Nombre y cadena de conexión son requeridos.', 'error'); return; }
+    if (id === 0 && !code) { showToast('El código es requerido.', 'error'); return; }
+
+    const url = id === 0 ? '/Admin/CreateCompany' : '/Admin/UpdateCompany';
+    fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, code, name, dbType, connStr, schemaName, sortOrder, showInLogin })
+    })
+    .then(r => r.json())
+    .then(d => {
+        showToast(d.message, d.success ? 'ok' : 'error');
+        if (d.success) setTimeout(() => location.reload(), 1500);
+    })
+    .catch(() => showToast('Error de comunicación.', 'error'));
+}
+</script>
+}
