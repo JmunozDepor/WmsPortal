@@ -34,14 +34,15 @@ function toggleCompanyMenu(e) {
 }
 
 function switchCompany(id) {
-    fetch('/Auth/SwitchCompany', {
+    const base = window.APP_BASE || '';
+    fetch(base + '/Auth/SwitchCompany', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ companyId: id })
     })
     .then(r => r.json())
     .then(d => {
-        if (d.success) location.href = '/Dashboard';
+        if (d.success) location.href = base + '/Dashboard';
         else showToast(d.message || 'Error al cambiar empresa.', 'error');
     })
     .catch(() => showToast('Error de comunicación.', 'error'));

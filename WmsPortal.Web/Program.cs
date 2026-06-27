@@ -40,6 +40,8 @@ builder.Services.Configure<HttpsRedirectionOptions>(options =>
 
 var app = builder.Build();
 
+app.UsePathBase("/WmsPortal");
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");

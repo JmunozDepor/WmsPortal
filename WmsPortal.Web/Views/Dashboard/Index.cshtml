@@ -4,9 +4,9 @@
 <div class="page-header">
     <h1 class="page-title">Dashboard</h1>
     <div class="range-tabs" role="group">
-        <a href="/Dashboard?dias=1"  class="range-tab @(Model.Dias==1  ? "active" : "")">Hoy</a>
-        <a href="/Dashboard?dias=7"  class="range-tab @(Model.Dias==7  ? "active" : "")">7 días</a>
-        <a href="/Dashboard?dias=30" class="range-tab @(Model.Dias==30 ? "active" : "")">30 días</a>
+        <a asp-controller="Dashboard" asp-action="Index" asp-route-dias="1"  class="range-tab @(Model.Dias==1  ? "active" : "")">Hoy</a>
+        <a asp-controller="Dashboard" asp-action="Index" asp-route-dias="7"  class="range-tab @(Model.Dias==7  ? "active" : "")">7 días</a>
+        <a asp-controller="Dashboard" asp-action="Index" asp-route-dias="30" class="range-tab @(Model.Dias==30 ? "active" : "")">30 días</a>
     </div>
 </div>
 

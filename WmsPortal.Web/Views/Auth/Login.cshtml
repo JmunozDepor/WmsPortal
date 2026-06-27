@@ -24,7 +24,7 @@
             <div class="alert-error">@Model.ErrorMessage</div>
         }
 
-        <form method="post" action="/Auth/Login">
+        <form method="post" asp-controller="Auth" asp-action="Login">
             <div class="form-section-label">Empresa</div>
             <div class="company-grid">
                 @foreach (var c in Model.Companies)

@@ -118,6 +118,11 @@
 <script>
 const COMPANIES = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
     Model.Companies.Select(c => new { id = c.Id, name = c.Name })));
+const URL_CREATE_USER    = '@Url.Action("CreateUser","Admin")';
+const URL_UPDATE_USER    = '@Url.Action("UpdateUser","Admin")';
+const URL_TEST_CONN      = '@Url.Action("TestConnection","Admin")';
+const URL_CREATE_COMPANY = '@Url.Action("CreateCompany","Admin")';
+const URL_UPDATE_COMPANY = '@Url.Action("UpdateCompany","Admin")';
 
 /* ─── helpers ─────────────────────────────────────────────────────── */
 function htmlEsc(s) {
@@ -214,7 +219,7 @@ function saveUser(userId) {
     if (userId === 0 && !username) { showToast('El nombre de usuario es requerido.', 'error'); return; }
     if (userId === 0 && !password) { showToast('La contraseña es requerida para nuevo usuario.', 'error'); return; }
 
-    fetch(userId === 0 ? '/Admin/CreateUser' : '/Admin/UpdateUser', {
+    fetch(userId === 0 ? URL_CREATE_USER : URL_UPDATE_USER, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: userId, username, email, password, role, isActive, companyIds })
@@ -294,7 +299,7 @@ function testConn() {
     btn.textContent = 'Probando…';
     btn.disabled = true;
 
-    fetch('/Admin/TestConnection', {
+    fetch(URL_TEST_CONN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dbType, connStr })
@@ -318,7 +323,7 @@ function saveCompany(id) {
     if (!name || !connStr) { showToast('Nombre y cadena de conexión son requeridos.', 'error'); return; }
     if (id === 0 && !code) { showToast('El código es requerido.', 'error'); return; }
 
-    const url = id === 0 ? '/Admin/CreateCompany' : '/Admin/UpdateCompany';
+    const url = id === 0 ? URL_CREATE_COMPANY : URL_UPDATE_COMPANY;
     fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

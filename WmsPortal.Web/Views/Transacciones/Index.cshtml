@@ -8,7 +8,7 @@
 
 <!-- Filtros -->
 <div class="filter-bar">
-    <form method="get" action="/Transacciones" class="filter-form">
+    <form method="get" asp-controller="Transacciones" asp-action="Index" class="filter-form">
         <input type="hidden" name="tipo" value="@((int)Model.Filter.Tipo)"/>
         <input type="hidden" name="pageSize" id="hf-pageSize" value="@Model.Filter.PageSize"/>
 
@@ -62,7 +62,7 @@
         </div>
         <div class="filter-actions">
             <button type="submit" class="btn-primary">Buscar</button>
-            <a href="/Transacciones?tipo=@((int)Model.Filter.Tipo)&desde=&hasta=" class="btn-secondary">Limpiar</a>
+            <a href="@Url.Action("Index","Transacciones", new { tipo = (int)Model.Filter.Tipo, desde = "", hasta = "" })" class="btn-secondary">Limpiar</a>
         </div>
     </form>
 </div>
@@ -174,7 +174,7 @@
     <div class="pag-btns">
         @for (int p = 1; p <= Model.Result.TotalPages; p++)
         {
-            <a href="/Transacciones?tipo=@((int)Model.Filter.Tipo)&status=@Model.Filter.Status&numDoc=@Model.Filter.NumeroDocumento&lpn=@Model.Filter.Lpn&customerPo=@Model.Filter.CustomerPo&desde=@Model.Filter.Desde?.ToString("yyyy-MM-dd")&hasta=@Model.Filter.Hasta?.ToString("yyyy-MM-dd")&page=@p&pageSize=@Model.Filter.PageSize"
+            <a href="@Url.Action("Index","Transacciones", new { tipo = (int)Model.Filter.Tipo, status = Model.Filter.Status, numDoc = Model.Filter.NumeroDocumento, lpn = Model.Filter.Lpn, customerPo = Model.Filter.CustomerPo, desde = Model.Filter.Desde?.ToString("yyyy-MM-dd"), hasta = Model.Filter.Hasta?.ToString("yyyy-MM-dd"), page = p, pageSize = Model.Filter.PageSize })"
                class="pag-btn @(p == Model.Result.Page ? "active" : "")">@p</a>
         }
     </div>
@@ -194,6 +194,7 @@
 @section Scripts {
 <script>
 const TIPO = @((int)Model.Filter.Tipo);
+const RESET_URL = '@Url.Action("Reset","Transacciones")';
 let selected = new Set();
 
 function toggleAll(chk) {
@@ -224,7 +225,7 @@ function openResetModal() {
 
 function doReset() {
     closeModal();
-    fetch('/Transacciones/Reset', {
+    fetch(RESET_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tipo: TIPO, claves: Array.from(selected) })
