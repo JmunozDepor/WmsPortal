@@ -33,3 +33,9 @@ public interface IAuditService
     Task LogResetAsync(AuditLog entry, PortalCompany company);
     Task<List<AuditLog>> GetAuditLogAsync(PortalCompany company, int page, int pageSize);
 }
+
+public interface IWmsStageService
+{
+    Task<PagedResult<WmsStageRow>> GetArchivosPaginadoAsync(WmsStageFilter filter, PortalCompany company);
+    Task<string?> GetContenidoXmlAsync(long id, PortalCompany company);
+}

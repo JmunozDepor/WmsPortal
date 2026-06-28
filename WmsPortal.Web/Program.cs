@@ -22,6 +22,7 @@ string masterSchema  = builder.Configuration["Master:Schema"]   ?? "CLPRD_WMS";
 // Infraestructura
 builder.Services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
 builder.Services.AddScoped<TransaccionRepository>();
+builder.Services.AddScoped<WmsStageRepository>();
 builder.Services.AddScoped(sp => new UserRepository(
     sp.GetRequiredService<IDbConnectionFactory>(),
     masterDbType, masterConnStr, masterSchema));
@@ -31,6 +32,7 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITransaccionService, TransaccionService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<IWmsStageService, WmsStageService>();
 
 // For IIS with multiple addresses: set explicit HTTPS port to avoid Ambiguous IServerAddressesFeature
 builder.Services.Configure<HttpsRedirectionOptions>(options =>

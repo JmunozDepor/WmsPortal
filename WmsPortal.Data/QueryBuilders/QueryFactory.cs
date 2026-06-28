@@ -229,6 +229,60 @@ GROUP BY {C("Status")}";
 ) AS T GROUP BY {C("Status")}";
     }
 
+    // ─── Queries de INT_WMS_STAGE ──────────────────────────────────────────
+
+    public static (string dataSql, string countSql) BuildWmsStageQuery(
+        string dbType, string schema,
+        string? estado, string? nombreArchivo,
+        DateTime? desde, DateTime? hasta,
+        int page, int pageSize)
+    {
+        string C(string col) => Col(dbType, col);
+        string tbl = TableRef(dbType, schema, "INT_WMS_STAGE");
+        string selectCols = $"{C("ID")},{C("TipoDoc")},{C("NombreArchivo")},{C("Estado")},{C("Intentos")},{C("MensajeError")},{C("FechaInserto")},{C("FechaProceso")}";
+
+        var conditions = new List<string>();
+
+        if (desde.HasValue)
+        {
+            string desdeSql = dbType == "HANA"
+                ? $"TO_TIMESTAMP('{desde:yyyy-MM-dd} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')"
+                : $"'{desde:yyyy-MM-dd}'";
+            conditions.Add($"{C("FechaInserto")} >= {desdeSql}");
+        }
+        if (hasta.HasValue)
+        {
+            string hastaSql = dbType == "HANA"
+                ? $"TO_TIMESTAMP('{hasta:yyyy-MM-dd} 23:59:59.999', 'YYYY-MM-DD HH24:MI:SS.FF3')"
+                : $"'{hasta:yyyy-MM-dd} 23:59:59'";
+            conditions.Add($"{C("FechaInserto")} <= {hastaSql}");
+        }
+        if (!string.IsNullOrWhiteSpace(estado))
+            conditions.Add($"{C("Estado")} = '{estado}'");
+        if (!string.IsNullOrWhiteSpace(nombreArchivo))
+            conditions.Add($"{C("NombreArchivo")} LIKE '%{nombreArchivo}%'");
+
+        string where = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
+        string orderBy = $"ORDER BY {C("FechaInserto")} DESC";
+        int offset = (page - 1) * pageSize;
+
+        if (dbType == "HANA")
+        {
+            string dataSql = $"SELECT {selectCols} FROM {tbl} {where} {orderBy} LIMIT {pageSize} OFFSET {offset}";
+            string countSql = $"SELECT COUNT(*) FROM {tbl} {where}";
+            return (dataSql, countSql);
+        }
+        else
+        {
+            string dataSql = $"SELECT {selectCols} FROM {tbl} {where} {orderBy} OFFSET {offset} ROWS FETCH NEXT {pageSize} ROWS ONLY";
+            string countSql = $"SELECT COUNT(*) FROM {tbl} {where}";
+            return (dataSql, countSql);
+        }
+    }
+
+    public static string GetWmsStageXmlById(string dbType, string schema, long id) =>
+        $"SELECT {Col(dbType, "ContenidoXML")} FROM {TableRef(dbType, schema, "INT_WMS_STAGE")} WHERE {Col(dbType, "ID")} = {id}";
+
     // ─── Queries de usuarios (siempre en HANA como BD maestra) ─────────────
 
     public static string InsertUser(string dbType, string schema)

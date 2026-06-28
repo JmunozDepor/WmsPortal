@@ -1,0 +1,162 @@
+@model WmsStageViewModel
+@{ ViewData["Title"] = "Archivos WMS"; ViewData["Nav"] = "wmsstage"; }
+
+<div class="page-header">
+    <h1 class="page-title">Archivos WMS</h1>
+    <span class="direction-tag">SFTP → Stage</span>
+</div>
+
+<!-- Filtros -->
+<div class="filter-bar">
+    <form method="get" asp-controller="WmsStage" asp-action="Index" class="filter-form">
+        <input type="hidden" name="pageSize" id="hf-pageSize" value="@Model.Filter.PageSize"/>
+
+        <div class="filter-group">
+            <label>Estado</label>
+            <select name="estado">
+                <option value="">Todos</option>
+                @foreach (var s in new[]{"PENDIENTE","APLANADO","ERROR_STAGING"})
+                {
+                    <option value="@s" selected="@(Model.Filter.Estado == s ? "selected" : null)">@s</option>
+                }
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>Nombre Archivo</label>
+            <input type="text" name="nombreArchivo" value="@Model.Filter.NombreArchivo" placeholder="Buscar..."/>
+        </div>
+
+        <div class="filter-group">
+            <label>Desde</label>
+            <input type="date" name="desde" value="@Model.Filter.Desde?.ToString("yyyy-MM-dd")"/>
+        </div>
+
+        <div class="filter-group">
+            <label>Hasta</label>
+            <input type="date" name="hasta" value="@Model.Filter.Hasta?.ToString("yyyy-MM-dd")"/>
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit" class="btn-primary">Buscar</button>
+            <a href="@Url.Action("Index","WmsStage", new { desde = "", hasta = "" })" class="btn-secondary">Limpiar</a>
+        </div>
+    </form>
+</div>
+
+<!-- Toolbar -->
+<div class="table-toolbar">
+    <div class="toolbar-left">
+        <label>Registros por página</label>
+        <select id="sel-pagesize" onchange="changePageSize(this.value)">
+            @foreach (var ps in new[]{10,25,50,100})
+            {
+                <option value="@ps" selected="@(Model.Filter.PageSize == ps ? "selected" : null)">@ps</option>
+            }
+        </select>
+    </div>
+    <div class="toolbar-right">
+        <span class="record-count">@Model.Result.TotalCount registro(s) encontrado(s)</span>
+    </div>
+</div>
+
+<!-- Tabla -->
+<div class="panel">
+    <div class="table-wrap">
+        <table class="data-table data-table-sm" id="stage-table">
+            <thead>
+                <tr>
+                    <th style="width:70px">ID</th>
+                    <th style="width:70px">TipoDoc</th>
+                    <th>Nombre Archivo</th>
+                    <th style="width:130px">Estado</th>
+                    <th style="width:60px">Intentos</th>
+                    <th style="width:180px">Mensaje Error</th>
+                    <th style="width:150px">Fecha Inserto</th>
+                    <th style="width:150px">Fecha Proceso</th>
+                    <th style="width:70px">XML</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Result.Items.Any())
+                {
+                    <tr><td colspan="9" class="empty-row">Sin registros para los filtros seleccionados.</td></tr>
+                }
+                @foreach (var row in Model.Result.Items)
+                {
+                    string estadoCls = row.Estado switch {
+                        "APLANADO"      => "status-ok",
+                        "ERROR_STAGING" => "status-error",
+                        "PENDIENTE"     => "status-pending",
+                        _               => "status-other"
+                    };
+                    <tr>
+                        <td class="fw-500">@row.Id</td>
+                        <td>@(row.TipoDoc ?? "—")</td>
+                        <td><span class="text-truncate" title="@row.NombreArchivo">@(row.NombreArchivo ?? "—")</span></td>
+                        <td><span class="status-badge @estadoCls">@(row.Estado ?? "—")</span></td>
+                        <td style="text-align:center">@(row.Intentos?.ToString() ?? "0")</td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(row.MensajeError) && row.MensajeError != "?")
+                            {
+                                <span class="text-error text-truncate" title="@row.MensajeError">@row.MensajeError</span>
+                            }
+                            else { <span>—</span> }
+                        </td>
+                        <td>@(row.FechaInserto ?? "—")</td>
+                        <td>@(row.FechaProceso ?? "—")</td>
+                        <td>
+                            <button class="btn-xs" onclick="verXml(@row.Id)">Ver XML</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Paginación -->
+@if (Model.Result.TotalCount > 0)
+{
+    <div class="pagination-bar">
+        <span class="pag-info">
+            Mostrando @((Model.Result.Page-1)*Model.Result.PageSize+1)–@(Math.Min(Model.Result.Page*Model.Result.PageSize, Model.Result.TotalCount))
+            de @Model.Result.TotalCount
+        </span>
+        <div class="pag-btns">
+            @for (int p = 1; p <= Model.Result.TotalPages; p++)
+            {
+                <a href="@Url.Action("Index","WmsStage", new { estado = Model.Filter.Estado, nombreArchivo = Model.Filter.NombreArchivo, desde = Model.Filter.Desde?.ToString("yyyy-MM-dd"), hasta = Model.Filter.Hasta?.ToString("yyyy-MM-dd"), page = p, pageSize = Model.Filter.PageSize })"
+                   class="pag-btn @(p == Model.Result.Page ? "active" : "")">@p</a>
+            }
+        </div>
+    </div>
+}
+
+@section Scripts {
+<script>
+const DETAIL_URL = '@Url.Action("Detail","WmsStage")';
+
+function verXml(id) {
+    const base = window.APP_BASE || '';
+    showModal('<h3>Contenido XML</h3><p style="color:var(--text-muted);font-size:12px">Cargando...</p>');
+    fetch(base + '/WmsStage/Detail/' + id)
+        .then(r => r.json())
+        .then(d => {
+            const content = d.xml || '(sin contenido)';
+            const escaped = content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            showModal(`<h3>Contenido XML <small style="font-size:11px;color:var(--text-muted);font-weight:400">#${id}</small></h3>
+<div style="max-height:60vh;overflow-y:auto;background:var(--gray-bg);border:1px solid var(--gray-border);border-radius:var(--radius);padding:10px;font-family:monospace;font-size:11px;white-space:pre-wrap;word-break:break-all;margin-bottom:.75rem">${escaped}</div>
+<div class="modal-btns"><button class="btn-secondary" onclick="closeModal()">Cerrar</button></div>`);
+        })
+        .catch(() => showModal('<h3>Error</h3><p>No se pudo cargar el contenido.</p><div class="modal-btns"><button class="btn-secondary" onclick="closeModal()">Cerrar</button></div>'));
+}
+
+function changePageSize(val) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('pageSize', val);
+    url.searchParams.set('page', '1');
+    window.location = url.toString();
+}
+</script>
+}

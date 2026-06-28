@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "PowerShell(Get-ChildItem -Path \"c:\\\\PROYECTOS\\\\WmsPortal\" -File | Select-Object Name, @{Name=\"Size\";Expression={$_.Length}})",
-      "PowerShell(Get-ChildItem -Path \"c:\\\\PROYECTOS\\\\WmsPortal\\\\WmsPortal.Web\\\\wwwroot\" -Recurse -File | Select-Object @{Name=\"Path\";Expression={$_.FullName.Replace\\('c:\\\\PROYECTOS\\\\WmsPortal\\\\WmsPortal.Web\\\\wwwroot\\\\',''\\)}} | Select-Object -First 20)"
+      "PowerShell(Get-ChildItem -Path \"c:\\\\PROYECTOS\\\\WmsPortal\\\\WmsPortal.Web\\\\wwwroot\" -Recurse -File | Select-Object @{Name=\"Path\";Expression={$_.FullName.Replace\\('c:\\\\PROYECTOS\\\\WmsPortal\\\\WmsPortal.Web\\\\wwwroot\\\\',''\\)}} | Select-Object -First 20)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\PROYECTOS\\\\WmsPortal\\\\WmsPortal.Web\\\\wwwroot\" -Recurse | Select-Object FullName, @{Name=\"Type\"; Expression={if\\($_.PSIsContainer\\) {\"DIR\"} else {$_.Extension}}} | Sort-Object FullName)",
+      "Bash(dotnet build *)",
+      "Bash(ls \"c:\\\\\\\\PROYECTOS\\\\\\\\WmsPortal\\\\\\\\WmsPortal.Core\\\\\\\\Interfaces\\\\\\\\\")"
     ]
   }
 }

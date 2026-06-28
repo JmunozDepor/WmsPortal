@@ -71,6 +71,26 @@ document.addEventListener('click', function(e) {
     });
 })();
 
+// ─── Sidebar móvil ──────────────────────────────────────────────────
+(function initSidebar() {
+    const toggle   = document.getElementById('sidebar-toggle');
+    const sidebar  = document.getElementById('sidebar');
+    const backdrop = document.getElementById('sidebar-backdrop');
+    if (!toggle || !sidebar || !backdrop) return;
+
+    function open()  { sidebar.classList.add('open');  backdrop.classList.add('open'); }
+    function close() { sidebar.classList.remove('open'); backdrop.classList.remove('open'); }
+
+    toggle.addEventListener('click', () =>
+        sidebar.classList.contains('open') ? close() : open());
+    backdrop.addEventListener('click', close);
+
+    sidebar.querySelectorAll('.nav-item').forEach(a =>
+        a.addEventListener('click', () => { if (window.innerWidth <= 768) close(); }));
+
+    window.addEventListener('resize', () => { if (window.innerWidth > 768) close(); });
+})();
+
 // ─── Ordenamiento de columnas (doble clic en encabezado) ─────────────
 (function initTableSort() {
     document.querySelectorAll('.data-table').forEach(table => {

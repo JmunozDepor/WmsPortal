@@ -34,6 +34,13 @@ public class AdminViewModel
     public PortalCompany Company { get; set; } = new();
 }
 
+public class WmsStageViewModel
+{
+    public WmsStageFilter Filter { get; set; } = new();
+    public PagedResult<WmsStageRow> Result { get; set; } = new();
+    public PortalCompany Company { get; set; } = new();
+}
+
 public class CompanyFormRequest
 {
     public int    Id           { get; set; }
